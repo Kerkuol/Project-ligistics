@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  lre-core:
+    build:
+      context: ./lre_core
+      dockerfile: Dockerfile
+    container_name: lre-core-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  lre-visualizer:
+    build:
+      context: ./lre_visualizer
+      dockerfile: Dockerfile
+    container_name: lre-visualizer-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - lre-core

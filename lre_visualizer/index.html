@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LRE-Visualizer — Мониторинг логистической нейросети</title>
+  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo-group">
+      <div class="logo-icon">
+        <span class="pulse-dot"></span>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="6" cy="6" r="3"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="12" r="3"/>
+          <line x1="8.5" y1="7.5" x2="15.5" y2="10.5"/>
+          <line x1="8.5" y1="16.5" x2="15.5" y2="13.5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>LRE-Visualizer <span class="badge">Explainable AI</span></h1>
+        <p class="subtitle">Монитор принятия решений концептуально-семантической нейросетью</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="trace-selector-box">
+        <label for="traceSelect">Трассировка:</label>
+        <select id="traceSelect">
+          <option value="latest">Загрузка последних...</option>
+        </select>
+        <button id="refreshTracesBtn" title="Обновить список" class="icon-btn">↻</button>
+      </div>
+      <button id="toggleSandboxBtn" class="primary-btn">
+        <span class="btn-icon">⚡</span> Симулятор What-If
+      </button>
+    </div>
+  </header>
+
+  <main class="main-layout">
+    <!-- Левая панель: Граф принятия решений -->
+    <section class="graph-section">
+      <div class="graph-toolbar">
+        <div class="layer-labels">
+          <span class="layer-pill input-pill">Входы X (Параметры и NLP)</span>
+          <span class="layer-arrow">→</span>
+          <span class="layer-pill concept-pill">Скрытые нейроны Z (Концепты)</span>
+          <span class="layer-arrow">→</span>
+          <span class="layer-pill req-pill">Выходы Y (Требования)</span>
+        </div>
+        <div class="graph-legend">
+          <span class="legend-item"><span class="dot active"></span> Активен (&gt;0.5)</span>
+          <span class="legend-item"><span class="dot stimulated"></span> Связь (+)</span>
+          <span class="legend-item"><span class="dot inhibited"></span> Запрет (-)</span>
+          <button id="resetFocusBtn" class="text-btn">Сбросить фокус</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="neuralCanvas"></canvas>
+      </div>
+    </section>
+
+    <!-- Правая панель: Инспектор активаций и деталей -->
+    <aside class="inspector-section">
+      <div class="panel-card" id="inspectorCard">
+        <div class="card-header">
+          <h2 id="inspectorTitle">Инспектор вывода</h2>
+          <span id="inspectorBadge" class="status-badge">Инфо</span>
+        </div>
+        
+        <div id="inspectorContent" class="card-body">
+          <p class="empty-state-text">Кликните на любое требование (колонка Y) или концептуальный нейрон (колонка Z), чтобы изучить путь прохождения сигнала и влияющие веса.</p>
+        </div>
+      </div>
+
+      <!-- Карточка сформированных требований -->
+      <div class="panel-card requirements-card">
+        <div class="card-header">
+          <h2>Сформированные требования (<span id="reqCount">0</span>)</h2>
+        </div>
+        <div class="card-body scrollable" id="requirementsList">
+          <div class="empty-state-text">Ожидание расчета...</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Модальное окно / Сайдбар: Симулятор What-If -->
+  <div class="modal-overlay" id="sandboxOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>⚡ Симулятор «Что, если?» (What-If Sandbox)</h2>
+        <button class="close-btn" id="closeSandboxBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="sandboxForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Наименование груза:</label>
+              <input type="text" id="sbName" value="Турбина гидрогенератора" required>
+            </div>
+            <div class="form-group">
+              <label>Стоимость (USD):</label>
+              <input type="number" id="sbCost" value="180000" min="0">
+            </div>
+          </div>
+
+          <div class="form-row dimensions-row">
+            <div class="form-group">
+              <label>Длина (м):</label>
+              <input type="number" id="sbLength" value="6.2" step="0.1" min="0.1">
+            </div>
+            <div class="form-group">
+              <label>Ширина (м):</label>
+              <input type="number" id="sbWidth" value="3.4" step="0.1" min="0.1">
+            </div>
+            <div class="form-group">
+              <label>Высота (м):</label>
+              <input type="number" id="sbHeight" value="2.9" step="0.1" min="0.1">
+            </div>
+            <div class="form-group">
+              <label>Вес (кг):</label>
+              <input type="number" id="sbWeight" value="24000" step="100" min="10">
+            </div>
+          </div>
+
+          <div class="form-row checkboxes-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="sbStackable"> Штабелируемый
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="sbDanger"> Опасный груз (IMO/ADR)
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="sbControl"> Вет/Фито контроль
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>Текстовые примечания (NLP анализ):</label>
+            <textarea id="sbNotes" rows="3" placeholder="Например: Не кантовать! Боится влаги, погрузка только мостовым краном через верх. Без перегрузки в пути.">Не кантовать! Боится влаги. Погрузка только кран-балкой через верх. Прямой рейс без перегрузки.</textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="secondary-btn" id="loadSampleBtn">Загрузить демо</button>
+            <button type="submit" class="primary-btn" id="runSandboxBtn">Рассчитать и подать импульс в сеть</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=3"></script>
+</body>
+</html>
